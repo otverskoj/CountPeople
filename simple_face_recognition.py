@@ -1,7 +1,43 @@
-try:
-    from PIL import Image
-    from facenet_pytorch import MTCNN, InceptionResnetV1
-except ImportError:
-    print('Libs are not Installed')
-else:
-    print('OK')
+from facenet_pytorch import MTCNN
+import torch
+import numpy as np
+import mmcv, cv2
+from PIL import Image, ImageDraw
+
+
+device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+print('Running on device: {}'.format(device))
+
+mtcnn = MTCNN(keep_all=True, device=device)
+
+video = mmcv.VideoReader('video.mp4')
+# print(len(video))
+# print(video.width, video.height, video.resolution, video.fps)
+# frames = [Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)) for frame in video]
+
+frames_tracked = []
+for i, frame in enumerate(video):
+
+    frame = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+
+    print('\rTracking frame: {}'.format(i + 1), end='')
+    
+    # Detect faces
+    boxes, _ = mtcnn.detect(frame)
+    
+    # Draw faces
+    frame_draw = frame.copy()
+    draw = ImageDraw.Draw(frame_draw)
+    for box in boxes:
+        draw.rectangle(box.tolist(), outline=(255, 0, 0), width=6)
+    
+    # Add to frame list
+    frames_tracked.append(frame_draw.resize((640, 360), Image.BILINEAR))
+print('\nDone')
+
+dim = frames_tracked[0].size
+fourcc = cv2.VideoWriter_fourcc(*'FMP4')    
+video_tracked = cv2.VideoWriter('video_tracked.mp4', fourcc, 25.0, dim)
+for frame in frames_tracked:
+    video_tracked.write(cv2.cvtColor(np.array(frame), cv2.COLOR_RGB2BGR))
+video_tracked.release()
