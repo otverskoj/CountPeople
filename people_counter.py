@@ -30,7 +30,7 @@ def process_video(input_file: str,
     OUT_VIDEO_W, OUT_VIDEO_H = 800, 600
     writer = cv2.VideoWriter(output_file, 
                              cv2.VideoWriter_fourcc(*'MJPG'),
-                             30, 
+                             25, 
                              (OUT_VIDEO_W, OUT_VIDEO_H),
                              True)
 
