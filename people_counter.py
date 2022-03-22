@@ -10,6 +10,7 @@ import torch
 from facenet_pytorch import MTCNN
 
 from src.centroid_tracker import CentroidTracker
+from src.face_detector import FaceDetector
 from src.trackable_object import TrackableObject
 
 
@@ -28,7 +29,7 @@ def process_video(input_file: str,
 
     OUT_VIDEO_W, OUT_VIDEO_H = 800, 600
     writer = cv2.VideoWriter(output_file, 
-                             cv2.VideoWriter_fourcc(*list('MJPG')),
+                             cv2.VideoWriter_fourcc(*'MJPG'),
                              30, 
                              (OUT_VIDEO_W, OUT_VIDEO_H),
                              True)
@@ -41,9 +42,7 @@ def process_video(input_file: str,
 
     fps_counter = FPS().start()
 
-    device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-    print('Running on device: {}'.format(device))
-    mtcnn = MTCNN(keep_all=True, device=device)
+    face_detector = FaceDetector()
 
     while True:
         frame = video_capture.read()
@@ -60,7 +59,7 @@ def process_video(input_file: str,
             status = 'Detecting'
             trackers = []
 
-            detections, probs = mtcnn.detect(rgb_frame)
+            detections, probs = face_detector.detect(rgb_frame)
 
             for detection, prob in zip(detections, probs):
                 if prob < confidence:
@@ -92,7 +91,7 @@ def process_video(input_file: str,
             if trackable_object is None:
                 trackable_object = TrackableObject(obj_id, centroid)
             else:
-                # TODO: реализовать логику подсчёта
+                # TODO: реализовать логику подсчёта in/out людей
                 y = [c[1] for c in trackable_object.centroids]
                 direction = centroid[1] - np.mean(y)
 
