@@ -7,8 +7,8 @@ Original file is located at
     https://colab.research.google.com/drive/1dQDBS4GbEpdn-tognXJmzBmtAwbVBfj7
 """
 
-!pip install -q facenet_pytorch
-!pip install -q mmcv
+# !pip install -q facenet_pytorch
+# !pip install -q mmcv
 
 """# Face tracking pipeline
 
@@ -20,99 +20,92 @@ import torch
 import numpy as np
 import mmcv, cv2
 from PIL import Image, ImageDraw
-from IPython import display
 
 """#### Determine if an nvidia GPU is available"""
 
-device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-print('Running on device: {}'.format(device))
+# device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+# print('Running on device: {}'.format(device))
 
-"""#### Define MTCNN module
+# """#### Define MTCNN module
 
-Note that, since MTCNN is a collection of neural nets and other code, the device must be passed in the following way to enable copying of objects when needed internally.
+# Note that, since MTCNN is a collection of neural nets and other code, the device must be passed in the following way to enable copying of objects when needed internally.
 
-See `help(MTCNN)` for more details.
-"""
+# See `help(MTCNN)` for more details.
+# """
 
-mtcnn = MTCNN(keep_all=True, device=device)
+# mtcnn = MTCNN(keep_all=True, device=device)
 
-"""#### Get a sample video
+# """#### Get a sample video
 
-We begin by loading a video with some faces in it. The `mmcv` PyPI package by mmlabs is used to read the video frames (it can be installed with `pip install mmcv`). Frames are then converted to PIL images.
-"""
+# We begin by loading a video with some faces in it. The `mmcv` PyPI package by mmlabs is used to read the video frames (it can be installed with `pip install mmcv`). Frames are then converted to PIL images.
+# """
 
-from google.colab import drive
-drive.mount('/content/drive')
+# # video = mmcv.VideoReader('/content/drive/MyDrive/video.mp4')
+# # frames = [Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)) for frame in video]
 
-# video = mmcv.VideoReader('/content/drive/MyDrive/video.mp4')
-# frames = [Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)) for frame in video]
-
-# display.Video('/content/drive/MyDrive/video.mp4', width=640)
-
-# mmcv.cut_video('/content/drive/MyDrive/video.mp4', '/content/drive/MyDrive/clip.mp4', start=60, end=120, vcodec='h264')
-video = mmcv.VideoReader('/content/drive/MyDrive/clip.mp4')
+# # mmcv.cut_video('/content/drive/MyDrive/video.mp4', '/content/drive/MyDrive/clip.mp4', start=60, end=120, vcodec='h264')
+# video = mmcv.VideoReader('/content/drive/MyDrive/clip.mp4')
 
 """#### Run video through MTCNN
 
 We iterate through each frame, detect faces, and draw their bounding boxes on the video frames.
 """
 
-import numpy as np
+
+# POINTS = np.array((
+#     (250, 1440),
+#     (515, 888), 
+#     (850, 450),
+#     (1350, 450),
+#     (1700, 600),
+#     (2560, 600),
+#     (2560, 1440),
+#     (250, 1440)
+# ))
 
 
-POINTS = np.array((
-    (250, 1440),
-    (515, 888), 
-    (850, 450),
-    (1350, 450),
-    (1700, 600),
-    (2560, 600),
-    (2560, 1440),
-    (250, 1440)
-))
+# def is_inside(point: np.ndarray, polygon: np.ndarray) -> bool:
+#     in_polygon = False
+#     x, y = point
+#     for i in range(polygon.shape[0]):
+#         curr_x, curr_y = polygon[i]
+#         prev_x, prev_y = polygon[i - 1]
+#         if ((curr_y <= y and y < prev_y) or (prev_y <= y and y < curr_y)) and \
+#            (x > (prev_x - curr_x) * (y - curr_y) / (prev_y - curr_y) + curr_x):
+#                 in_polygon = not in_polygon
+#     return in_polygon
 
+# frames_tracked = []
+# for i, frame in enumerate(video, start=1):
 
-def is_inside(point: np.ndarray, polygon: np.ndarray) -> bool:
-    in_polygon = False
-    for i in range(polygon.shape[0]):
-        curr_x, curr_y = polygon[i]
-        prev_x, prev_y = polygon[i - 1]
-        if ((curr_y <= y and y < prev_y) or (prev_y <= y and y < curr_y)) and \
-           (x > (prev_x - curr_x) * (y - curr_y) / (prev_y - curr_y) + curr_x):
-                in_polygon = not in_polygon
-    return in_polygon
+#     frame = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
 
-frames_tracked = []
-for i, frame in enumerate(video, start=1):
-
-    frame = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
-
-    print(f'\rTracking frame: {i}', end='')
+#     print(f'\rTracking frame: {i}', end='')
     
-    # Detect faces
-    boxes, _ = mtcnn.detect(frame)
+#     # Detect faces
+#     boxes, _ = mtcnn.detect(frame)
     
-    # Draw faces
-    frame_draw = frame.copy()
-    drawer = ImageDraw.Draw(frame_draw)
-    if boxes is not None:
-        for box in boxes:
-            # up_left, down_right = box[:2], box[2:]
-            # if is_inside(up_left, points) and is_inside(down_right, points):
-            #     draw.rectangle(box.tolist(), outline=(255, 0, 0), width=6)
-            drawer.rectangle(box.tolist(), outline=(255, 0, 0), width=6)
+#     # Draw faces
+#     frame_draw = frame.copy()
+#     drawer = ImageDraw.Draw(frame_draw)
+#     if boxes is not None:
+#         for box in boxes:
+#             # up_left, down_right = box[:2], box[2:]
+#             # if is_inside(up_left, points) and is_inside(down_right, points):
+#             #     draw.rectangle(box.tolist(), outline=(255, 0, 0), width=6)
+#             drawer.rectangle(box.tolist(), outline=(255, 0, 0), width=6)
     
-    frames_tracked.append(frame_draw.resize((640, 360), Image.BILINEAR))
-print('\nDone')
+#     frames_tracked.append(frame_draw.resize((640, 360), Image.BILINEAR))
+# print('\nDone')
 
-"""#### Display detections
+# """#### Display detections
 
-#### Save tracked video
-"""
+# #### Save tracked video
+# """
 
-dim = frames_tracked[0].size
-fourcc = cv2.VideoWriter_fourcc(*'FMP4')    
-video_tracked = cv2.VideoWriter('/content/drive/MyDrive/video_tracked.mp4', fourcc, 25.0, dim)
-for frame in frames_tracked:
-    video_tracked.write(cv2.cvtColor(np.array(frame), cv2.COLOR_RGB2BGR))
-video_tracked.release()
+# dim = frames_tracked[0].size
+# fourcc = cv2.VideoWriter_fourcc(*'FMP4')    
+# video_tracked = cv2.VideoWriter('/content/drive/MyDrive/video_tracked.mp4', fourcc, 25.0, dim)
+# for frame in frames_tracked:
+#     video_tracked.write(cv2.cvtColor(np.array(frame), cv2.COLOR_RGB2BGR))
+# video_tracked.release()
