@@ -42,6 +42,7 @@ def process_video(input_file: str,
 
     fps_counter = FPS().start()
 
+    # TODO: заменить детектор
     face_detector = FaceDetector()
 
     while True:
@@ -59,6 +60,7 @@ def process_video(input_file: str,
             status = 'Detecting'
             trackers = []
 
+            # TODO: заменить детектор
             detections, probs = face_detector.detect(rgb_frame)
 
             for detection, prob in zip(detections, probs):
@@ -81,7 +83,8 @@ def process_video(input_file: str,
         
         # линия для понимания, зашёл человек или вышел
         # TODO: изменить координаты точек линии
-        cv2.line(frame, (1, 1), (1, 1), (0, 255, 255), 2)
+        cv2.line(frame, (850, 450), (1350, 450), (0, 255, 255), 2)
+        LINE_H = 450
 
         objects = centroid_tracker.update(rects)
 
@@ -98,10 +101,10 @@ def process_video(input_file: str,
                 trackable_object.centroids.append(centroid)
 
                 if not trackable_object.is_counted:
-                    if direction < 0 and centroid[1] < OUT_VIDEO_H // 2:
+                    if direction < 0 and centroid[1] < LINE_H:
                         total_in += 1
                         trackable_object.is_counted = True
-                    elif direction > 0 and centroid[1] > OUT_VIDEO_H // 2:
+                    elif direction > 0 and centroid[1] > LINE_H:
                         total_out += 1
                         trackable_object.is_counted = True
             
