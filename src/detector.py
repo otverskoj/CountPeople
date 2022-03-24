@@ -1,4 +1,6 @@
 import os
+import time
+from typing import Optional, Tuple
 import numpy as np
 import cv2
 
@@ -7,10 +9,12 @@ class Detector:
     def __init__(self,
                  model_type: str,
                  model_dir: str,
-                 confidence: float = 0.9) -> None:
+                 confidence_threshold: float = 0.9,
+                 nms_threshold: float = 0.45) -> None:
         self.model_type = model_type
         self.model_dir = model_dir
-        self.confidence = confidence
+        self.confidence_threshold = confidence_threshold
+        self.nms_thershold = nms_threshold
 
         self.model_mapping = {
             'mobilenet_ssd': {
@@ -50,13 +54,16 @@ class Detector:
 
         with open(classes_file, mode='r', encoding='utf-8') as f:
             self.classes = tuple(c.strip() for c in f.readlines())
-        self.model = cv2.dnn.readNet(onnx_file)
+        self.model = cv2.dnn.readNetFromONNX(onnx_file)
 
-    def detect(self, image_path: str) -> np.ndarray:
-        image = cv2.imread(image_path)
+    def detect(self, image_path: str = None, 
+               image: np.ndarray = None) -> Tuple:
+        if image_path is not None:
+            image = cv2.imread(image_path)
+        
         return self.model_mapping[self.model_type]['detect'](image)
     
-    def detect_by_mobilenetssd(self, image: np.ndarray) -> np.ndarray:
+    def detect_by_mobilenetssd(self, image: np.ndarray) -> Tuple:
         h, w = image.shape[:2]
         blob = cv2.dnn.blobFromImage(cv2.resize(image, (300, 300)), 0.007843,
                                      (300, 300), 127.5)
@@ -66,7 +73,7 @@ class Detector:
         result = []
         for i in np.arange(detections.shape[2]):
             confidence = detections[0, 0, i, 2]
-            if confidence > self.confidence:
+            if confidence > self.confidence_threshold:
                 class_idx = int(detections[0, 0, i, 1])
                 bbox = detections[0, 0, i, 3:7] * np.array((w, h, w, h))
                 bbox = bbox.astype('int')
@@ -74,13 +81,10 @@ class Detector:
         
         return np.array(result)
     
-    def detect_by_yolov5(self, image: np.ndarray) -> np.ndarray:
+    def detect_by_yolov5(self, image: np.ndarray) -> Tuple:
         yolov5_dim = 640
 
         height, weight = image.shape[:2]
-        # _max = max(height, weight)
-        # resized = np.zeros((_max, _max, 3), np.uint8)
-        # resized[0:height, 0:weight] = image
 
         blob = cv2.dnn.blobFromImage(cv2.resize(image, (yolov5_dim, yolov5_dim)), 
                                      1 / 255.0, (yolov5_dim, yolov5_dim), swapRB=True)        
@@ -94,10 +98,10 @@ class Detector:
         y_factor =  height / yolov5_dim
 
         bboxes, confidences, class_ids = [], [], []
-        for r in range(rows):
-            row = output[r]
+        for row_idx in range(rows):
+            row = output[row_idx]
             confidence = row[4]
-            if confidence > self.confidence:
+            if confidence > self.confidence_threshold:
                 classes_scores = row[5:]
                 _, _, _, max_idx = cv2.minMaxLoc(classes_scores)
                 class_id = max_idx[1]
@@ -113,47 +117,103 @@ class Detector:
                     confidences.append(confidence)
                     class_ids.append(class_id)
 
-        indices = cv2.dnn.NMSBoxes(bboxes, confidences, 0.25, 0.45)
+        indices = cv2.dnn.NMSBoxes(bboxes, confidences, 
+                                   self.confidence_threshold, 
+                                   self.nms_thershold)
 
-        result = []
-        for i in indices:
-            result.append(
-                tuple([bboxes[i], confidences[i], class_ids[i]])
-            )
-
-        print(*result, sep='\n')
-        print(bboxes, confidences, class_ids)
-
-        return np.array(result)
-
-    def display(self, image_path: str, data: np.ndarray) -> None:
-        image = cv2.imread(image_path)
+        result = tuple(
+            tuple([bboxes[i], confidences[i], class_ids[i]]) for i in indices
+        )
         
-        for i in range(data.shape[0]):
-            bbox, confidence, class_idx = data[i]
-            color = (0, 255, 0)
+        return result
 
+    def display(self, image_path: str = None, 
+                image: np.ndarray = None,
+                with_draw: bool = False,
+                data: Tuple = tuple()) -> None:
+        if image_path is not None:
+            image = cv2.imread(image_path)
+        
+        if with_draw:
+            image = self.draw_bboxes(image, data)
+        
+        if image.shape[0] > 1080 or image.shape[1] > 1920:
+            image = cv2.resize(image, (1920, 1080))
+        
+        cv2.imshow("Detections", image)
+        if cv2.waitKey(1) == ord('q'):
+            return
+    
+    def draw_bboxes(self, image: np.ndarray, data: Tuple) -> np.ndarray:
+        for detection in data:
+            bbox, confidence, class_idx = detection
+            color = (0, 255, 0)
+            
+            # # mobilenet_ssd display
             # label = f'{self.classes[class_idx]}: {confidence * 100:.2f}%'
             # cv2.rectangle(image, bbox[:2], bbox[2:], color, 2)
             # text_y = bbox[1] - 15 if bbox[1] > 30 else bbox[1] + 15
             # cv2.putText(image, label, (bbox[0], text_y), 
             #             cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
             
+            # yolo display
             cv2.rectangle(image, bbox, color, 2)
             cv2.putText(image, f'{self.classes[class_idx]}: {confidence * 100:.2f}%', 
                         (bbox[0], bbox[1] - 10), cv2.FONT_HERSHEY_SIMPLEX, 
                         0.5, (0, 0, 0))
         
-        if image.shape[0] > 1080 or image.shape[1] > 1920:
-            image = cv2.resize(image, (1920, 1080))
+        return image
+    
+    def detect_video(self, video_path: str = None,
+                     output_path: str = None) -> None:
+        video = cv2.VideoCapture(0 if video_path is None else video_path)
         
-        cv2.imshow("Output", image)
-        cv2.waitKey(0)
+        if not video.isOpened():
+            print("Cannot open camera")
+            return
+        
+        if video_path is None:
+            time.sleep(2.0)
+        
+        writer = None
+        output_w, output_h = None, None
+
+        while True:
+            ret, frame = video.read()
+
+            if video_path is not None and not ret:
+                print("Can't receive frame (stream end?). Exiting...")
+                break
+
+            # rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            rgb_frame = frame
+
+            data = self.detect(image=rgb_frame)
+            rgb_frame = self.draw_bboxes(rgb_frame, data)
+
+            if output_w is None and output_h is None:
+                # TODO: можно сделать другое разрешение
+                output_w, output_h = 800, 600
+            
+            if output_path is not None and writer is None:
+                fourcc = cv2.VideoWriter_fourcc(*'MJPG')
+                writer = cv2.VideoWriter(output_path, fourcc,
+                                         25, (output_h, output_w), True)
+            
+            writer.write(rgb_frame)
+            
+            # if video_path is None or output_path is None:
+            #     self.display(image=rgb_frame)
+        
+        video.release()
+        writer.release()
+        cv2.destroyAllWindows()
 
 
 if __name__ == '__main__':
-    detector = Detector('yolov5', './model_data/yolov5', 0.4)
-    image_path = './data/input/image/frame.jpg'
-    data = detector.detect(image_path)
-    detector.display(image_path, data)
-    
+    detector = Detector('yolov5', './model_data/yolov5', confidence_threshold=0.4)
+    # image_path = './data/input/image/frame.jpg'
+    # data = detector.detect(image_path)
+    # detector.display(image_path, data)
+    detector.detect_video(r'D:\Work\CountPeople\data\input\video\clip.mp4', 
+                          r'D:\Work\CountPeople\data\output\video\clip.mp4')

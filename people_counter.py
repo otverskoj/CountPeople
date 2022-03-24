@@ -10,7 +10,8 @@ import torch
 from facenet_pytorch import MTCNN
 
 from src.centroid_tracker import CentroidTracker
-from src.face_detector import FaceDetector
+# from src.face_detector import FaceDetector
+from src.detector import Detector
 from src.trackable_object import TrackableObject
 
 
@@ -42,17 +43,13 @@ def process_video(input_file: str,
 
     fps_counter = FPS().start()
 
-    # TODO: заменить детектор
-    face_detector = FaceDetector()
+    detector = Detector('yolov5', './model_data/yolov5', confidence_threshold=confidence)
 
     while True:
-        frame = video_capture.read()
-        if frame is None:
+        ret, frame = video_capture.read()
+        if not ret:
             break
             
-        frame = imutils.resize(frame, width=OUT_VIDEO_W, height=OUT_VIDEO_H)
-        rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        
         status = 'Waiting'
         rects = []
 
@@ -61,21 +58,21 @@ def process_video(input_file: str,
             trackers = []
 
             # TODO: заменить детектор
-            detections, probs = face_detector.detect(rgb_frame)
+            detections = detector.detect(frame)
 
-            for detection, prob in zip(detections, probs):
-                if prob < confidence:
+            for detection in detections:
+                if detector.classes[detection[2]] != 'person':
                     continue
 
                 tracker = dlib.correlation_tracker()
-                rect = dlib.rectangle(*tuple(map(int, detection)))
-                tracker.start_track(rgb_frame, rect)
+                rect = dlib.rectangle(*tuple(map(int, detection[0])))
+                tracker.start_track(frame, rect)
 
                 trackers.append(tracker)
         else:
             status = 'Tracking'
             for tracker in trackers:
-                tracker.update(rgb_frame)
+                tracker.update(frame)
                 pos = tracker.get_position()
 
                 coords = pos.left(), pos.top(), pos.right(), pos.bottom()
