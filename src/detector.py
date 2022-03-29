@@ -1,6 +1,6 @@
 import os
 import time
-from typing import Optional, Tuple
+from typing import Tuple
 import numpy as np
 import cv2
 
@@ -84,17 +84,17 @@ class Detector:
     def detect_by_yolov5(self, image: np.ndarray) -> Tuple:
         yolov5_dim = 640
 
-        height, weight = image.shape[:2]
+        height, width = image.shape[:2]
 
         blob = cv2.dnn.blobFromImage(cv2.resize(image, (yolov5_dim, yolov5_dim)), 
-                                     1 / 255.0, (yolov5_dim, yolov5_dim), swapRB=True)        
+                                     1 / 255.0, (yolov5_dim, yolov5_dim))        
         self.model.setInput(blob)
         predictions = self.model.forward()
         output = predictions[0]
 
         rows = output.shape[0]
 
-        x_factor = weight / yolov5_dim
+        x_factor = width / yolov5_dim
         y_factor =  height / yolov5_dim
 
         bboxes, confidences, class_ids = [], [], []

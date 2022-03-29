@@ -36,7 +36,8 @@ class CentroidTracker:
             return self.objects
         
         input_centroids = np.zeros((len(rects), 2), dtype='int')
-        for i, start_x, start_y, end_x, end_y in enumerate(rects):
+        for i, rect in enumerate(rects):
+            start_x, start_y, end_x, end_y = rect
             centroid_x = (start_x + end_x) // 2.0
             centroid_y = (start_y + end_y) // 2.0
             input_centroids[i] = centroid_x, centroid_y
@@ -45,8 +46,8 @@ class CentroidTracker:
             for i in range(len(input_centroids)):
                 self.register(input_centroids[i])
         else:
-            object_ids = self.objects.keys()
-            object_centroids = self.objects.values()
+            object_ids = list(self.objects.keys())
+            object_centroids = list(self.objects.values())
 
             dists = distance.cdist(object_centroids, input_centroids)
 
@@ -67,8 +68,8 @@ class CentroidTracker:
                     used_rows.add(row)
                     used_cols.add(col)
             
-            unused_rows = set(dists.shape[0]).difference(used_rows)
-            unused_cols = set(dists.shape[1]).difference(used_cols)
+            unused_rows = set(range(dists.shape[0])).difference(used_rows)
+            unused_cols = set(range(dists.shape[1])).difference(used_cols)
 
             if len(object_centroids) >= len(input_centroids):
                 for row in unused_rows:
