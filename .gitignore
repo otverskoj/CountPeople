@@ -152,3 +152,4 @@ cython_debug/
 .idea/
 
 experiments/
+data/input/video/video.mp4
