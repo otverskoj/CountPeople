@@ -5,7 +5,9 @@ from facenet_pytorch import MTCNN
 
 
 class FaceDetector:
-    def __init__(self, roi: np.ndarray = None) -> None:
+    def __init__(self, 
+                 roi: np.ndarray = None,
+                 confidence: float = 0.3) -> None:
         self.roi = roi or np.array((
             (250, 1440),
             (515, 888), 
@@ -16,12 +18,13 @@ class FaceDetector:
             (2560, 1440),
             (250, 1440)
         ))
+        self.confidence = confidence
         self.source_shape = 2560, 1440
         self.device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
         self.mtcnn = MTCNN(keep_all=True, device=self.device)
 
     def detect(self, frame: np.ndarray) -> Tuple[List[Tuple[float, float, float, float]], List[float]]:
-        self._scale_roi(*frame.shape)
+        self._scale_roi(frame.shape[1], frame.shape[0])
         boxes, probs = self.mtcnn.detect(frame)
         
         if boxes is None:
@@ -30,10 +33,11 @@ class FaceDetector:
         bbox_in_roi, probs_for_bbox_in_roi = [], []
         for box, prob in zip(boxes, probs):
             left_up, right_down = box[:2], box[2:]
-            if self._is_inside(left_up, self.roi) and \
-                self._is_inside(right_down, self.roi):
-                    bbox_in_roi.append(box)
-                    probs_for_bbox_in_roi.append(prob)
+            if self._is_point_inside(left_up, self.roi) and \
+                self._is_point_inside(right_down, self.roi) and \
+                    prob > self.confidence:
+                bbox_in_roi.append(box)
+                probs_for_bbox_in_roi.append(prob)
         
         return tuple(bbox_in_roi), tuple(probs_for_bbox_in_roi)
     
@@ -46,7 +50,7 @@ class FaceDetector:
         self.source_shape = w, h
     
     
-    def _is_inside(point: np.ndarray, polygon: np.ndarray) -> bool:
+    def _is_point_inside(self, point: np.ndarray, polygon: np.ndarray) -> bool:
         in_polygon = False
         x, y = point
         for i in range(polygon.shape[0]):

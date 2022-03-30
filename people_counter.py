@@ -1,14 +1,10 @@
 import os
-import time
 from typing import Iterable, Tuple
 
 import cv2
-import imutils
 from imutils.video import FPS
 import numpy as np
 import dlib
-import torch
-from facenet_pytorch import MTCNN
 
 from src.centroid_tracker import CentroidTracker
 # from src.face_detector import FaceDetector
@@ -82,14 +78,13 @@ def process_video(input_file: str = None,
             bboxes.extend(new_bboxes)
         
         # линия для понимания, зашёл человек или вышел
-        # TODO: изменить координаты точек линии
         LINE_H = int(630 * OUT_H_SCALE)
         LINE_LEFT_W, LINE_RIGHT_W = int(875 * OUT_W_SCALE), int(1350 * OUT_W_SCALE)
         cv2.line(
             resized_rgb_frame,
             (LINE_LEFT_W, LINE_H), 
             (LINE_RIGHT_W, LINE_H),
-            (0, 255, 255), 2
+            (0, 255, 0), 2
         )
 
         objects = centroid_tracker.update(bboxes)
@@ -160,7 +155,6 @@ def process_video(input_file: str = None,
 
 
 def detect(frame: np.ndarray, detector: Detector) -> Tuple:
-    # TODO: заменить детектор
     detections = detector.detect(image=frame)
     return tuple([
         d[0] for d in detections if detector.classes[d[2]] == 'person'
